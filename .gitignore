@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Crawler output
+*.csv
+*.json
+*.jl
+*.log
+
+# Scrapy cache
+.scrapy/
+.cache/
+
+# VSCode settings
+.vscode/
+
+# Environment files
+.env
+.venv/
+venv/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
+# Pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Egg files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Backup files
+*.bak
+*.swp
+*.swo
+
+# PyInstaller
+*.spec

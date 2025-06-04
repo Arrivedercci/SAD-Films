@@ -4,10 +4,10 @@ import scrapy
 class LetterboxdFilmsSpider(scrapy.Spider):
     name = "letterboxd_films"
     allowed_domains = ["letterboxd.com"]
-    start_urls = ["https://letterboxd.com/members/"]
+    start_urls = ["https://letterboxd.com/members/popular/this/week/"]
 
     user_count = 0
-    max_users = 50000  
+    max_users = 25000  
 
     def parse(self, response):
         # Extrair links dos perfis de usuários na página de membros

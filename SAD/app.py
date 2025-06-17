@@ -2,74 +2,92 @@ import streamlit as st
 import pandas as pd
 import requests
 import pickle
+import re
 
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.neighbors import NearestNeighbors
 
-with open('movies_info.pkl', 'rb') as f:
-    movies = pickle.load(f)
+def clean_text(text):
+    if pd.isnull(text):
+        return ""
+    text = text.lower()
+    text = re.sub(r'[.,]', '', text)
+    return text
 
-with open('rated_movies.pkl', 'rb') as f:
-    rated_movies = pickle.load(f)
+@st.cache_data
+def load_movies():
+    with open('movies_info.pkl', 'rb') as f:
+        return pickle.load(f)
 
+@st.cache_data
+def load_rated_movies():
+    with open('rated_movies.pkl', 'rb') as f:
+        return pickle.load(f)
 
+@st.cache_resource
+def get_vectorizer_and_knn(movies):
+    movies = movies.fillna('')
+    movies['features'] = (
+        movies['genres'].astype(str) + ' ' +
+        movies['keywords'].astype(str) + ' ' +
+        movies['title'].astype(str) + ' ' +
+        movies['overview'].astype(str)
+    )
+    movies['features'] = movies['features'].apply(clean_text) 
+    vectorizer = CountVectorizer(token_pattern=r"(?u)\b\w+\b")
+    X = vectorizer.fit_transform(movies['features'])
+    knn = NearestNeighbors(metric='cosine', algorithm='brute')
+    knn.fit(X)
+    return vectorizer, knn, X
 
-movies = movies.fillna('')
-
-movies['features'] = (
-    movies['director'].astype(str) + ' ' +
-    movies['genres_y'].astype(str) + ' ' +
-    movies['keywords'].astype(str)
-)
-
-
-vectorizer = CountVectorizer(token_pattern=r"(?u)\b\w+\b")
-X = vectorizer.fit_transform(movies['features'])
-
-knn = NearestNeighbors(metric='cosine', algorithm='brute')
-knn.fit(X)
-
-def get_recommendations_by_content(title, n_recommendations=50):
-    if title not in movies['title_x'].values:
-        return f"Filme '{title}' não encontrado."
-    
-    idx = movies[movies['title_x'] == title].index[0]
-    distances, indices = knn.kneighbors(X[idx], n_neighbors=n_recommendations+1)
-    
-    recommended_titles = [movies.iloc[i]['title_x'] for i in indices.flatten() if movies.iloc[i]['title_x'] != title]
-    return recommended_titles[:n_recommendations]
-
-def get_recommendation_by_ratings(title, n_recommendations=6):
-    content_recs = get_recommendations_by_content(title, n_recommendations=50)
-    if not content_recs:
-        return f"Filme '{title}' não encontrado."
-    
-    pivot = rated_movies.pivot_table(index='film_title', columns='user_id', values='rating').fillna(0)
-    
-    filtered_titles = [title] + [rec for rec in content_recs if rec in pivot.index]
-    filtered_pivot = pivot.loc[filtered_titles]
-    
-    knn_ratings = NearestNeighbors(metric='cosine', algorithm='brute')
-    knn_ratings.fit(filtered_pivot.values)
-    
-    idx = filtered_pivot.index.get_loc(title)
-    distances, indices = knn_ratings.kneighbors([filtered_pivot.iloc[idx].values], n_neighbors=min(n_recommendations+1, len(filtered_titles)))
-    
-    recommended_titles = [filtered_pivot.index[i] for i in indices.flatten() if filtered_pivot.index[i] != title]
-    return recommended_titles[:n_recommendations]
-
-def fetch_poster(movie_id):
+@st.cache_data
+def fetch_poster(movie_id, release_year):
     api_key = '34d72a2f52be7a84916976ed820a3adc'  
     url = f'https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}'
     response = requests.get(url)
-    data = response.json()
-    poster_path = data['poster_path']
-    full_path = f"https://image.tmdb.org/t/p/w500{poster_path}"
-    return full_path
+    if response.status_code == 200:
+        data = response.json()
+        tmdb_year = data.get('release_date', '')[:4]
+        if str(release_year) == str(tmdb_year):
+            poster_path = data.get('poster_path')
+            if poster_path:
+                return f"https://image.tmdb.org/t/p/w500{poster_path}"
+    return "https://via.placeholder.com/220x330?text=No+Poster"
+  
+
+movies = load_movies()
+rated_movies = load_rated_movies()
+
+# Adiciona coluna title_year se não existir
+if 'title_year' not in movies.columns:
+    movies['title_year'] = movies['title'] + ' (' + movies['year'].astype(str) + ')'
+
+vectorizer, knn, X = get_vectorizer_and_knn(movies)
+
+def get_recommendations_by_content(title_year, n_recommendations=13):
+    if title_year not in movies['title_year'].values:
+        return []
+    idx = movies[movies['title_year'] == title_year].index[0]
+    distances, indices = knn.kneighbors(X[idx], n_neighbors=n_recommendations+1)
+    recommended_title_years = [movies.iloc[i]['title_year'] for i in indices.flatten() if movies.iloc[i]['title_year'] != title_year]
+    return recommended_title_years[:n_recommendations]
+
+def get_recommendation_by_ratings(title_year, n_recommendations=8):
+    content_recs = get_recommendations_by_content(title_year, n_recommendations=2500)
+    if not content_recs:
+        return []
+    pivot = rated_movies.pivot_table(index='film_title', columns='user_id', values='rating').fillna(0)
+    filtered_titles = [title_year] + [rec for rec in content_recs if rec in pivot.index]
+    filtered_pivot = pivot.loc[filtered_titles]
+    knn_ratings = NearestNeighbors(metric='cosine', algorithm='brute')
+    knn_ratings.fit(filtered_pivot.values)
+    idx = filtered_pivot.index.get_loc(title_year)
+    distances, indices = knn_ratings.kneighbors([filtered_pivot.iloc[idx].values], n_neighbors=min(n_recommendations+1, len(filtered_titles)))
+    recommended_title_years = [filtered_pivot.index[i] for i in indices.flatten() if filtered_pivot.index[i] != title_year]
+    return recommended_title_years[:n_recommendations]
 
 def show_posters_grid(recommendations):
-    recommendations = recommendations.drop_duplicates(subset='title').reset_index(drop=True)
+    recommendations = recommendations.drop_duplicates(subset='title_year').reset_index(drop=True)
     num_to_show = min(6, len(recommendations))
     for i in range(0, num_to_show, 3):
         cols = st.columns(3)
@@ -78,18 +96,19 @@ def show_posters_grid(recommendations):
             if j < num_to_show:
                 movie_title = recommendations.iloc[j]['title']
                 movie_id = recommendations.iloc[j]['movie_id']
-                poster_url = fetch_poster(movie_id)
+                year = recommendations.iloc[j]['year']
+                title_year = recommendations.iloc[j]['title_year']
+                poster_url = fetch_poster(movie_id, year)
                 with col:
                     st.image(poster_url, width=400)
-                    st.write(movie_title)
+                    st.write(f"{title_year}")
 
-                    
 with st.sidebar:
     st.title("Sistema de Recomendação")
     search_input = st.text_input("Digite parte do nome do filme:")
 
     if search_input:
-        filtered_titles = movies[movies['title_x'].str.lower().str.contains(search_input.lower())]['title_x'].unique()
+        filtered_titles = movies[movies['title_year'].str.lower().str.contains(search_input.lower(), na=False)]['title_year'].unique()
         if len(filtered_titles) == 0:
             st.warning("Nenhum filme encontrado.")
             selected_movie = None
@@ -101,10 +120,11 @@ with st.sidebar:
     rec_system = st.checkbox("Usar recomendação por notas dos usuários", value=False)
 
     if selected_movie:
-        movie_row = movies[movies['title_x'] == selected_movie]
+        movie_row = movies[movies['title_year'] == selected_movie]
         if not movie_row.empty:
             movie_id = movie_row.iloc[0]['id']
-            poster_url = fetch_poster(movie_id)
+            year = movie_row.iloc[0]['year']
+            poster_url = fetch_poster(movie_id, year)
             st.markdown(
                 f"<div style='display: flex; justify-content: center;'><img src='{poster_url}' width='220'></div><br>",
                 unsafe_allow_html=True
@@ -117,10 +137,10 @@ if selected_movie and recommend_clicked:
     if not rec_system:
         st.subheader("Recomendações por conteúdo:")
         recommendations = get_recommendations_by_content(selected_movie)
-        rec_df = movies[movies['title_x'].isin(recommendations)][['title_x', 'id']].rename(columns={'title_x': 'title', 'id': 'movie_id'}).reset_index(drop=True)
+        rec_df = movies[movies['title_year'].isin(recommendations)][['title', 'id', 'year', 'title_year']].rename(columns={'id': 'movie_id'}).reset_index(drop=True)
         show_posters_grid(rec_df)
     else:
         st.subheader("Recomendações por notas de usuários:")
         recommendations = get_recommendation_by_ratings(selected_movie)
-        rec_df = movies[movies['title_x'].isin(recommendations)][['title_x', 'id']].rename(columns={'title_x': 'title', 'id': 'movie_id'}).reset_index(drop=True)
+        rec_df = movies[movies['title_year'].isin(recommendations)][['title', 'id', 'year', 'title_year']].rename(columns={'id': 'movie_id'}).reset_index(drop=True)
         show_posters_grid(rec_df)

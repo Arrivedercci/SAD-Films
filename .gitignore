@@ -53,3 +53,6 @@ build/
 
 # PyInstaller
 *.spec
+
+# Pickle files
+*.pkl

@@ -64,7 +64,7 @@ if 'title_year' not in movies.columns:
 
 vectorizer, knn, X = get_vectorizer_and_knn(movies)
 
-def get_recommendations_by_content(title_year, n_recommendations=13):
+def get_recommendations_by_content(title_year, n_recommendations=40):
     if title_year not in movies['title_year'].values:
         return []
     idx = movies[movies['title_year'] == title_year].index[0]
@@ -72,11 +72,11 @@ def get_recommendations_by_content(title_year, n_recommendations=13):
     recommended_title_years = [movies.iloc[i]['title_year'] for i in indices.flatten() if movies.iloc[i]['title_year'] != title_year]
     return recommended_title_years[:n_recommendations]
 
-def get_recommendation_by_ratings(title_year, n_recommendations=8):
-    content_recs = get_recommendations_by_content(title_year, n_recommendations=2500)
+def get_recommendation_by_ratings(title_year, n_recommendations=18):
+    content_recs = get_recommendations_by_content(title_year, n_recommendations=140)
     if not content_recs:
         return []
-    pivot = rated_movies.pivot_table(index='film_title', columns='user_id', values='rating').fillna(0)
+    pivot = rated_movies.pivot_table(index='title_year', columns='user_id', values='rating').fillna(0)
     filtered_titles = [title_year] + [rec for rec in content_recs if rec in pivot.index]
     filtered_pivot = pivot.loc[filtered_titles]
     knn_ratings = NearestNeighbors(metric='cosine', algorithm='brute')

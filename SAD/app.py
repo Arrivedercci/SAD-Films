@@ -131,7 +131,7 @@ with st.sidebar:
             )
     recommend_clicked = st.button('Recomendar', use_container_width=True)
 
-st.markdown("<h1 style='color:#D7263D; font-weight:bold;'>XUXU FILMES:</h1>", unsafe_allow_html=True)
+st.markdown("""<h1 style='font-weight:bold;'><span style='color:#D7263D;'>REC.</span><span style='color:#f8f8f8;'>mendar</span> :</h1>""", unsafe_allow_html=True)
 
 if selected_movie and recommend_clicked:
     if not rec_system:

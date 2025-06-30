@@ -1,0 +1,13 @@
+# Web scraping
+scrapy
+selenium
+playwright
+
+# Data processing & ML
+pandas
+numpy
+scikit-learn
+
+# Web app & HTTP
+streamlit
+requests

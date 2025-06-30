@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import pickle
 import re
-
+from pathlib import Path
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.neighbors import NearestNeighbors
 
@@ -14,14 +14,18 @@ def clean_text(text):
     text = re.sub(r'[.,]', '', text)
     return text
 
+BASE_DIR = Path(__file__).resolve().parent  # .../SAD-Films/SAD
+
 @st.cache_data
 def load_movies():
-    with open('movies_info.pkl', 'rb') as f:
+    pkl = BASE_DIR / 'movies_info.pkl'
+    with open(pkl, 'rb') as f:
         return pickle.load(f)
 
 @st.cache_data
 def load_rated_movies():
-    with open('rated_movies.pkl', 'rb') as f:
+    pkl = BASE_DIR / 'rated_movies.pkl'
+    with open(pkl, 'rb') as f:
         return pickle.load(f)
 
 @st.cache_resource

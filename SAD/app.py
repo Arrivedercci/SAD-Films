@@ -7,27 +7,36 @@ from pathlib import Path
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.neighbors import NearestNeighbors
 
-def clean_text(text):
-    if pd.isnull(text):
-        return ""
-    text = text.lower()
-    text = re.sub(r'[.,]', '', text)
-    return text
-
-BASE_DIR = Path(__file__).resolve().parent  # .../SAD-Films/SAD
+# pasta onde estão este script e os .pkl
+BASE_DIR = Path(__file__).resolve().parent  # ...\SAD-Films\SAD
+MOVIES_PKL   = BASE_DIR / "movies_info.pkl"
+RATED_PKL    = BASE_DIR / "rated_movies.pkl"
 
 @st.cache_data
 def load_movies():
-    pkl = BASE_DIR / 'movies_info.pkl'
-    with open(pkl, 'rb') as f:
+    if not MOVIES_PKL.exists():
+        st.error(f"Arquivo não encontrado: {MOVIES_PKL}")
+        return pd.DataFrame()
+    with open(MOVIES_PKL, "rb") as f:
         return pickle.load(f)
 
 @st.cache_data
 def load_rated_movies():
-    pkl = BASE_DIR / 'rated_movies.pkl'
-    with open(pkl, 'rb') as f:
+    if not RATED_PKL.exists():
+        st.error(f"Arquivo não encontrado: {RATED_PKL}")
+        return pd.DataFrame()
+    with open(RATED_PKL, "rb") as f:
         return pickle.load(f)
 
+def clean_text(text):
+    if pd.isnull(text):
+        return ""
+    text = text.lower()
+    text = re.sub(r"[.,]", "", text)
+    return text
+
+movies = load_movies()
+rated_movies = load_rated_movies()
 @st.cache_resource
 def get_vectorizer_and_knn(movies):
     movies = movies.fillna('')

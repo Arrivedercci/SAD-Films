@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent  # ...\SAD-Films\SAD
 MOVIES_PKL   = BASE_DIR / "movies_info.pkl"
 RATED_PKL    = BASE_DIR / "rated_movies.pkl"
 
-@st.cache_data
+
 def load_movies():
     if not MOVIES_PKL.exists():
         st.error(f"Arquivo não encontrado: {MOVIES_PKL}")
@@ -20,7 +20,7 @@ def load_movies():
     with open(MOVIES_PKL, "rb") as f:
         return pickle.load(f)
 
-@st.cache_data
+
 def load_rated_movies():
     if not RATED_PKL.exists():
         st.error(f"Arquivo não encontrado: {RATED_PKL}")

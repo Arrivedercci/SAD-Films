@@ -37,7 +37,7 @@ def clean_text(text):
 
 movies = load_movies()
 rated_movies = load_rated_movies()
-@st.cache_resource
+
 def get_vectorizer_and_knn(movies):
     movies = movies.fillna('')
     movies['features'] = (

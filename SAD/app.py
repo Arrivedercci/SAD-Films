@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent  # ...\SAD-Films\SAD
 MOVIES_PKL   = BASE_DIR / "movies_info.pkl"
 RATED_PKL    = BASE_DIR / "rated_movies.pkl"
 
-
+@st.cache_data
 def load_movies():
     if not MOVIES_PKL.exists():
         st.error(f"Arquivo não encontrado: {MOVIES_PKL}")
@@ -20,7 +20,7 @@ def load_movies():
     with open(MOVIES_PKL, "rb") as f:
         return pickle.load(f)
 
-
+@st.cache_data
 def load_rated_movies():
     if not RATED_PKL.exists():
         st.error(f"Arquivo não encontrado: {RATED_PKL}")
@@ -37,7 +37,7 @@ def clean_text(text):
 
 movies = load_movies()
 rated_movies = load_rated_movies()
-
+@st.cache_resource
 def get_vectorizer_and_knn(movies):
     movies = movies.fillna('')
     movies['features'] = (
@@ -77,7 +77,7 @@ if 'title_year' not in movies.columns:
 
 vectorizer, knn, X = get_vectorizer_and_knn(movies)
 
-def get_recommendations_by_content(title_year, n_recommendations=40):
+def get_recommendations_by_content(title_year, n_recommendations=80):
     if title_year not in movies['title_year'].values:
         return []
     idx = movies[movies['title_year'] == title_year].index[0]

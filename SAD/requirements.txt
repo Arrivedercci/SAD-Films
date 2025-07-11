@@ -1,7 +1,6 @@
 # Web scraping
 scrapy
 selenium
-playwright
 
 # Data processing & ML
 pandas
@@ -10,5 +9,6 @@ scikit-learn
 
 # Web app & HTTP
 streamlit
+pandas
 requests
 pathlib

@@ -2,17 +2,15 @@ import streamlit as st
 import pandas as pd
 import requests
 import pickle
-import re
 from pathlib import Path
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.neighbors import NearestNeighbors
+
 
 # pasta onde estão este script e os .pkl
 BASE_DIR = Path(__file__).resolve().parent  # ...\SAD-Films\SAD
 MOVIES_PKL   = BASE_DIR / "movies_info.pkl"
-RATED_PKL    = BASE_DIR / "rated_movies.pkl"
+CONTENT_RECS_PKL = BASE_DIR / "content_recs.pkl"
+RATING_RECS_PKL = BASE_DIR / "rating_recs.pkl"
 
-@st.cache_data
 def load_movies():
     if not MOVIES_PKL.exists():
         st.error(f"Arquivo não encontrado: {MOVIES_PKL}")
@@ -20,40 +18,17 @@ def load_movies():
     with open(MOVIES_PKL, "rb") as f:
         return pickle.load(f)
 
-@st.cache_data
-def load_rated_movies():
-    if not RATED_PKL.exists():
-        st.error(f"Arquivo não encontrado: {RATED_PKL}")
-        return pd.DataFrame()
-    with open(RATED_PKL, "rb") as f:
+def load_recommendations(file_path):
+    if not file_path.exists():
+        st.error(f"Arquivo não encontrado: {file_path}")
+        return {}
+    with open(file_path, "rb") as f:
         return pickle.load(f)
 
-def clean_text(text):
-    if pd.isnull(text):
-        return ""
-    text = text.lower()
-    text = re.sub(r"[.,]", "", text)
-    return text
-
 movies = load_movies()
-rated_movies = load_rated_movies()
-@st.cache_resource
-def get_vectorizer_and_knn(movies):
-    movies = movies.fillna('')
-    movies['features'] = (
-        movies['genres'].astype(str) + ' ' +
-        movies['keywords'].astype(str) + ' ' +
-        movies['title'].astype(str) + ' ' +
-        movies['overview'].astype(str)
-    )
-    movies['features'] = movies['features'].apply(clean_text) 
-    vectorizer = CountVectorizer(token_pattern=r"(?u)\b\w+\b")
-    X = vectorizer.fit_transform(movies['features'])
-    knn = NearestNeighbors(metric='cosine', algorithm='brute')
-    knn.fit(X)
-    return vectorizer, knn, X
+content_recs = load_recommendations(CONTENT_RECS_PKL)
+rating_recs = load_recommendations(RATING_RECS_PKL)
 
-@st.cache_data
 def fetch_poster(movie_id, release_year):
     api_key = '34d72a2f52be7a84916976ed820a3adc'  
     url = f'https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}'
@@ -68,36 +43,19 @@ def fetch_poster(movie_id, release_year):
     return "https://via.placeholder.com/220x330?text=No+Poster"
   
 
-movies = load_movies()
-rated_movies = load_rated_movies()
-
 # Adiciona coluna title_year se não existir
 if 'title_year' not in movies.columns:
     movies['title_year'] = movies['title'] + ' (' + movies['year'].astype(str) + ')'
 
-vectorizer, knn, X = get_vectorizer_and_knn(movies)
-
 def get_recommendations_by_content(title_year, n_recommendations=80):
-    if title_year not in movies['title_year'].values:
+    if title_year not in content_recs:
         return []
-    idx = movies[movies['title_year'] == title_year].index[0]
-    distances, indices = knn.kneighbors(X[idx], n_neighbors=n_recommendations+1)
-    recommended_title_years = [movies.iloc[i]['title_year'] for i in indices.flatten() if movies.iloc[i]['title_year'] != title_year]
-    return recommended_title_years[:n_recommendations]
+    return content_recs[title_year][:n_recommendations]
 
 def get_recommendation_by_ratings(title_year, n_recommendations=18):
-    content_recs = get_recommendations_by_content(title_year, n_recommendations=140)
-    if not content_recs:
+    if title_year not in rating_recs:
         return []
-    pivot = rated_movies.pivot_table(index='title_year', columns='user_id', values='rating').fillna(0)
-    filtered_titles = [title_year] + [rec for rec in content_recs if rec in pivot.index]
-    filtered_pivot = pivot.loc[filtered_titles]
-    knn_ratings = NearestNeighbors(metric='cosine', algorithm='brute')
-    knn_ratings.fit(filtered_pivot.values)
-    idx = filtered_pivot.index.get_loc(title_year)
-    distances, indices = knn_ratings.kneighbors([filtered_pivot.iloc[idx].values], n_neighbors=min(n_recommendations+1, len(filtered_titles)))
-    recommended_title_years = [filtered_pivot.index[i] for i in indices.flatten() if filtered_pivot.index[i] != title_year]
-    return recommended_title_years[:n_recommendations]
+    return rating_recs[title_year][:n_recommendations]
 
 def show_posters_grid(recommendations):
     recommendations = recommendations.drop_duplicates(subset='title_year').reset_index(drop=True)

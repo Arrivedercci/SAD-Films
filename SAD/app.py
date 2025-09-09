@@ -2,8 +2,11 @@ import streamlit as st
 import pandas as pd
 import requests
 import pickle
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+load_dotenv() 
 
 # pasta onde estão este script e os .pkl
 BASE_DIR = Path(__file__).resolve().parent  # ...\SAD-Films\SAD
@@ -30,7 +33,7 @@ content_recs = load_recommendations(CONTENT_RECS_PKL)
 rating_recs = load_recommendations(RATING_RECS_PKL)
 
 def fetch_poster(movie_id, release_year):
-    api_key = '34d72a2f52be7a84916976ed820a3adc'  
+    api_key = os.getenv('API_KEY')
     url = f'https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}'
     response = requests.get(url)
     if response.status_code == 200:
